@@ -1,0 +1,16 @@
+# Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# Playwright CLI 会话产物
+.playwright-cli/
+
+# Go
+backend/server
+*.test
+
+# 本地环境
+.env.local
+.DS_Store

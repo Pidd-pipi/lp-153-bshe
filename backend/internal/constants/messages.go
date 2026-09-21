@@ -1,0 +1,30 @@
+package constants
+
+// 接口返回文案、日志文案、错误提示文案统一在此维护。
+const (
+	MsgOK                 = "ok"
+	MsgRegisterSuccess    = "注册成功"
+	MsgLoginSuccess       = "登录成功"
+	MsgUpdateSuccess      = "更新成功"
+	MsgDeleteSuccess      = "删除成功"
+	MsgWishCreated        = "心愿发布成功"
+	MsgWishClaimed        = "认领成功，你已成为圆梦人"
+	MsgWishCompleted      = "心愿已完成，进入庆祝时刻"
+	MsgCapsuleCreated     = "时光胶囊已封存"
+	MsgCapsuleUnlocked    = "时光胶囊已解锁"
+	MsgBadgeGranted       = "获得成就徽章"
+	MsgUploadSuccess      = "上传成功"
+	MsgEmailExists        = "邮箱已被注册"
+	MsgUsernameExists     = "用户名已被占用"
+	MsgInvalidCredential  = "用户名或密码错误"
+	MsgUserBanned         = "账号已被封禁，请联系管理员"
+	MsgNeedLogin          = "请先登录"
+	MsgNeedAdmin          = "需要管理员权限"
+	MsgWishNotFound       = "心愿不存在"
+	MsgWishNotOwner       = "只有心愿发布者才能执行该操作"
+	MsgWishAlreadyClaimed = "该心愿已被认领"
+	MsgClaimNotFound      = "认领记录不存在"
+	MsgCapsuleLocked      = "时光胶囊尚未到解锁时间"
+	MsgParamInvalid       = "参数校验失败"
+	MsgInternalError      = "服务器内部错误"
+)

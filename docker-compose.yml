@@ -1,0 +1,105 @@
+name: wishwall
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-wishwall}-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-wishwall_db}
+      POSTGRES_USER: ${DB_USER:-wishwall_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-wishwall_pwd}
+    ports:
+      - "${DB_PORT:-57607}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-wishwall_user} -d ${DB_NAME:-wishwall_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-wishwall}-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-46325}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio:
+    image: minio/minio:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-wishwall}-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-47028}:9000"
+      - "${MINIO_CONSOLE_PORT:-47029}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build: ./backend
+    container_name: ${COMPOSE_PROJECT_NAME:-wishwall}-backend
+    environment:
+      APP_ENV: production
+      SERVER_PORT: "8080"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-wishwall_user}
+      DB_PASSWORD: ${DB_PASSWORD:-wishwall_pwd}
+      DB_NAME: ${DB_NAME:-wishwall_db}
+      DB_SSLMODE: disable
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: "0"
+      JWT_SECRET: ${JWT_SECRET:-change_me_to_a_long_random_string}
+      JWT_EXPIRE_HOURS: "72"
+      RATE_LIMIT_PER_MIN: "300"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: wishwall
+      MINIO_USE_SSL: "false"
+      UPLOAD_BASE_URL: ${UPLOAD_BASE_URL:-http://localhost:${BACKEND_PORT:-19403}}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123456}
+    ports:
+      - "${BACKEND_PORT:-19403}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  frontend:
+    build: ./frontend
+    container_name: ${COMPOSE_PROJECT_NAME:-wishwall}-frontend
+    ports:
+      - "${FRONTEND_PORT:-18403}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  redis_data:
+  minio_data:
