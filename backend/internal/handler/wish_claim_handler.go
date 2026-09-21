@@ -57,24 +57,53 @@ func (h *WishClaimHandler) UpdateProgress(c *gin.Context) {
 	c.JSON(200, gin.H{"code": 0, "message": constants.MsgUpdateSuccess, "data": dto.ToWishClaimResponse(claim, "", "")})
 }
 
-// Complete POST /api/v1/claims/:id/complete
-func (h *WishClaimHandler) Complete(c *gin.Context) {
+// Submit POST /api/v1/claims/:id/submit 圆梦人送交验收。
+func (h *WishClaimHandler) Submit(c *gin.Context) {
 	claimID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		responseError(c, 400, constants.CodeBadRequest, "认领 id 参数非法")
 		return
 	}
-	var req dto.CompleteClaimRequest
+	var req dto.SubmitClaimRequest
 	if !bindJSON(c, &req) {
 		return
 	}
 	userID := middleware.CurrentUserID(c)
-	claim, err := h.claim.Complete(c.Request.Context(), userID, claimID, req, c.ClientIP(), middleware.GetRequestID(c))
+	claim, err := h.claim.SubmitForAcceptance(c.Request.Context(), userID, claimID, req, c.ClientIP(), middleware.GetRequestID(c))
 	if err != nil {
 		handleError(c, err)
 		return
 	}
-	c.JSON(200, gin.H{"code": 0, "message": constants.MsgWishCompleted, "data": dto.ToWishClaimResponse(claim, "", "")})
+	c.JSON(200, gin.H{"code": 0, "message": constants.MsgClaimSubmitted, "data": dto.ToWishClaimResponse(claim, "", "")})
+}
+
+// Review POST /api/v1/claims/:id/review 发布者验收（确认/驳回）。
+func (h *WishClaimHandler) Review(c *gin.Context) {
+	claimID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		responseError(c, 400, constants.CodeBadRequest, "认领 id 参数非法")
+		return
+	}
+	var req dto.ReviewClaimRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	// handler 层再次包装：驳回必须写原因（错误信息携带实体名 wish_claim 与字段名 reason）。
+	if req.Action == "reject" && req.Reason == "" {
+		responseError(c, 422, constants.CodeRejectReasonRequired, constants.MsgRejectReason+"（实体：wish_claim，字段：reason，角色：发布者）")
+		return
+	}
+	userID := middleware.CurrentUserID(c)
+	claim, err := h.claim.Review(c.Request.Context(), userID, claimID, req, c.ClientIP(), middleware.GetRequestID(c))
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	message := constants.MsgClaimAccepted
+	if req.Action == "reject" {
+		message = constants.MsgClaimRejected
+	}
+	c.JSON(200, gin.H{"code": 0, "message": message, "data": dto.ToWishClaimResponse(claim, "", "")})
 }
 
 // Mine GET /api/v1/claims/mine

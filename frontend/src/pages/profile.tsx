@@ -8,6 +8,7 @@ import { badgeApi } from "@/api/badge";
 import EmptyState from "@/components/EmptyState";
 import ProgressBar from "@/components/ProgressBar";
 import RequireAuth from "@/components/RequireAuth";
+import StatusBadge from "@/components/StatusBadge";
 import WishCard from "@/components/WishCard";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -128,8 +129,17 @@ export default function Profile() {
               <div className="space-y-3">
                 {myClaims.map((c) => (
                   <div key={c.id} className="card space-y-2 !py-4">
-                    <p className="font-medium text-gray-800">{c.wish_title}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-gray-800">{c.wish_title}</p>
+                      <StatusBadge status={c.status} />
+                    </div>
                     <ProgressBar progress={c.progress} label="圆梦进度" />
+                    {c.status === "pending_acceptance" && c.submission_note && (
+                      <p className="text-xs text-orange-600">待验收 · 送交说明：{c.submission_note}</p>
+                    )}
+                    {c.status === "in_progress" && c.reject_reason && (
+                      <p className="text-xs text-rose-600">驳回原因：{c.reject_reason}（可重新送交）</p>
+                    )}
                   </div>
                 ))}
               </div>

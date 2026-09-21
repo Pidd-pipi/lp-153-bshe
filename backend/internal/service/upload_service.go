@@ -75,4 +75,3 @@ func (s *uploadService) Upload(ctx context.Context, userID uint64, file multipar
 	})
 	return url, nil
 }
-

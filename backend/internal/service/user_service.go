@@ -23,9 +23,9 @@ type UserService interface {
 }
 
 type userService struct {
-	repo  repository.UserRepository
-	cfg   *config.Config
-	audit AuditService
+	repo   repository.UserRepository
+	cfg    *config.Config
+	audit  AuditService
 	logger *slog.Logger
 }
 

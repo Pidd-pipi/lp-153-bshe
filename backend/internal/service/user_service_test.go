@@ -85,24 +85,24 @@ func TestUserService_Login(t *testing.T) {
 		wantToken   bool
 	}{
 		{
-			name:     "login success by username",
-			account:  "alice",
-			password: "secret123",
-			findFn:   func(account string) (*model.User, error) { return user, nil },
+			name:      "login success by username",
+			account:   "alice",
+			password:  "secret123",
+			findFn:    func(account string) (*model.User, error) { return user, nil },
 			wantToken: true,
 		},
 		{
-			name:     "wrong password",
-			account:  "alice",
-			password: "wrong-pass",
-			findFn:   func(account string) (*model.User, error) { return user, nil },
+			name:        "wrong password",
+			account:     "alice",
+			password:    "wrong-pass",
+			findFn:      func(account string) (*model.User, error) { return user, nil },
 			wantErrCode: constants.CodeInvalidCredential,
 		},
 		{
-			name:     "user not found",
-			account:  "ghost",
-			password: "secret123",
-			findFn:   func(account string) (*model.User, error) { return nil, repository.ErrNotFound },
+			name:        "user not found",
+			account:     "ghost",
+			password:    "secret123",
+			findFn:      func(account string) (*model.User, error) { return nil, repository.ErrNotFound },
 			wantErrCode: constants.CodeInvalidCredential,
 		},
 	}

@@ -3,6 +3,7 @@ node_modules/
 .next/
 out/
 npm-debug.log*
+tsconfig.tsbuildinfo
 
 # Playwright CLI 会话产物
 .playwright-cli/

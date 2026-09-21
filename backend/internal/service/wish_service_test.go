@@ -15,7 +15,7 @@ func TestWishService_Create(t *testing.T) {
 	t.Parallel()
 	granted := false
 	wishRepo := &mockWishRepo{
-		createFn: func(w *model.Wish) error { w.ID = 10; return nil },
+		createFn:      func(w *model.Wish) error { w.ID = 10; return nil },
 		countByUserFn: func(userID uint64) (int64, error) { return 1, nil },
 	}
 	badge := &mockBadge{grantFirstWishFn: func(userID uint64) error { granted = true; return nil }}

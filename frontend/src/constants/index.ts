@@ -13,18 +13,21 @@ export const WISH_STATUS = {
   PENDING: "pending",
   CLAIMED: "claimed",
   IN_PROGRESS: "in_progress",
+  PENDING_ACCEPTANCE: "pending_acceptance",
   COMPLETED: "completed",
 } as const;
 export const WISH_STATUS_TEXT: Record<string, string> = {
   pending: "待认领",
   claimed: "已被认领",
   in_progress: "圆梦中",
+  pending_acceptance: "待验收",
   completed: "已完成",
 };
 export const WISH_STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
   claimed: "bg-sky-100 text-sky-700",
   in_progress: "bg-violet-100 text-violet-700",
+  pending_acceptance: "bg-orange-100 text-orange-700",
   completed: "bg-emerald-100 text-emerald-700",
 };
 

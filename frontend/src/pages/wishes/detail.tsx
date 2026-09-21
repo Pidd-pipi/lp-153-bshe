@@ -24,6 +24,8 @@ export default function WishDetailPage() {
   const [gift, setGift] = useState("");
   const [progress, setProgress] = useState(0);
   const [note, setNote] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
+  const [showRejectBox, setShowRejectBox] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   const load = useCallback(async (wishId: number) => {
@@ -46,7 +48,7 @@ export default function WishDetailPage() {
     if (id) load(id);
   }, [id, load]);
 
-  const claim = async () => {
+  const claimIt = async () => {
     if (!isAuthed()) {
       toast.show("请先登录再认领", "error");
       return;
@@ -78,13 +80,37 @@ export default function WishDetailPage() {
     }
   };
 
-  const complete = async () => {
+  const submitForAcceptance = async () => {
     if (!wish?.claim) return;
+    if (note.trim().length < 2) {
+      toast.show("请填写送交说明（至少 2 个字）", "error");
+      return;
+    }
     setActionLoading(true);
     try {
-      await claimApi.complete(wish.claim.id, { note });
-      toast.show("心愿完成，进入庆祝时刻 🎉");
+      await claimApi.submitForAcceptance(wish.claim.id, { note: note.trim() });
+      toast.show("已送交发布者验收，等待确认 ⏳");
       setNote("");
+      load(id);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const review = async (action: "approve" | "reject") => {
+    if (!wish?.claim) return;
+    if (action === "reject" && !rejectReason.trim()) {
+      toast.show("驳回必须填写原因", "error");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await claimApi.review(wish.claim.id, action === "reject" ? { action, reason: rejectReason.trim() } : { action });
+      toast.show(action === "approve" ? "已确认验收，心愿完成 🎉" : "已驳回，心愿回到圆梦中");
+      setRejectReason("");
+      setShowRejectBox(false);
       load(id);
     } catch (e) {
       toast.show((e as Error).message, "error");
@@ -119,7 +145,10 @@ export default function WishDetailPage() {
   }
 
   const isOwner = isAuthed() && wish.user_id === user?.id;
-  const isFulfiller = Boolean(wish.claim);
+  const claim = wish.claim;
+  const isFulfiller = Boolean(claim && isAuthed() && claim.user_id === user?.id);
+  const underReview = claim?.status === "pending_acceptance";
+  const isRejected = claim?.status === "in_progress" && Boolean(claim.reject_reason);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -160,37 +189,100 @@ export default function WishDetailPage() {
           </div>
         )}
 
-        {wish.claim && (
+        {claim && (
           <div className="rounded-xl bg-purple-50 p-4">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-sm font-medium text-purple-700">
-                圆梦人：{wish.claim.fulfiller_name || `#${wish.claim.user_id}`} · 里程碑 {wish.claim.milestone_count} 次
+                圆梦人：{claim.fulfiller_name || `#${claim.user_id}`} · 里程碑 {claim.milestone_count} 次
               </p>
-              <span className="text-xs text-purple-400">认领于 {formatDate(wish.claim.created_at)}</span>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={claim.status} />
+                <span className="text-xs text-purple-400">认领于 {formatDate(claim.created_at)}</span>
+              </div>
             </div>
-            <ProgressBar progress={wish.claim.progress} label="圆梦进度" />
-            {wish.claim.latest_note && <p className="mt-2 text-sm text-gray-600">{wish.claim.latest_note}</p>}
+            <ProgressBar progress={claim.progress} label="圆梦进度" />
+            {claim.latest_note && <p className="mt-2 text-sm text-gray-600">最新进度：{claim.latest_note}</p>}
+
+            {claim.submission_note && (
+              <div className="mt-3 rounded-lg border border-orange-100 bg-white p-3">
+                <p className="text-xs font-medium text-orange-600">
+                  送交说明{claim.submitted_at ? ` · ${formatDate(claim.submitted_at)}` : ""}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">{claim.submission_note}</p>
+              </div>
+            )}
+
+            {isRejected && (
+              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
+                <p className="text-xs font-medium text-rose-600">
+                  发布者驳回原因{claim.reviewed_at ? ` · ${formatDate(claim.reviewed_at)}` : ""}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-rose-700">{claim.reject_reason}</p>
+                {isFulfiller && <p className="mt-1 text-xs text-rose-500">说明已保留，完善后可重新送交验收。</p>}
+              </div>
+            )}
+
+            {underReview && (
+              <p className="mt-3 text-center text-xs text-orange-500">
+                ⏳ 已送交发布者验收，待验收期间不能更新进度或重复送交
+              </p>
+            )}
           </div>
         )}
 
-        {isFulfiller && wish.status !== "completed" && (
+        {/* 圆梦人操作入口：圆梦中可更新进度/送交，待验收与已完成时禁用 */}
+        {isFulfiller && claim && !underReview && claim.status !== "completed" && (
           <div className="space-y-3 rounded-xl border border-purple-100 bg-white p-4">
-            <p className="text-sm font-medium text-gray-700">更新圆梦进度</p>
+            <p className="text-sm font-medium text-gray-700">
+              {isRejected ? "根据驳回原因完善后重新送交" : "更新圆梦进度"}
+            </p>
             <input type="range" min={0} max={100} value={progress} onChange={(e) => setProgress(Number(e.target.value))} className="w-full" />
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <span>当前进度：{progress}%</span>
               <button className="btn-secondary !py-1 !px-3" disabled={actionLoading} onClick={() => updateProgress(progress, true)}>里程碑打卡 🎯</button>
             </div>
-            <textarea className="input min-h-[60px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="记录进度说明/故事..." />
+            <textarea className="input min-h-[60px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder={isRejected ? "记录补充说明，也将作为重新送交的说明..." : "记录进度说明/送交说明..."} />
             <div className="flex gap-3">
               <button className="btn-secondary" disabled={actionLoading} onClick={() => updateProgress(progress, false)}>保存进度</button>
-              <button className="btn-primary" disabled={actionLoading} onClick={complete}>标记完成 🎉</button>
+              <button className="btn-primary" disabled={actionLoading} onClick={submitForAcceptance}>
+                {isRejected ? "重新送交验收 ⏳" : "送交验收 ⏳"}
+              </button>
             </div>
           </div>
         )}
 
-        {!wish.claim && !isOwner && wish.status === "pending" && (
-          <button className="btn-primary w-full" disabled={actionLoading} onClick={claim}>
+        {/* 发布者验收入口：只有发布者在待验收时可见 */}
+        {isOwner && claim && underReview && (
+          <div className="space-y-3 rounded-xl border border-orange-200 bg-orange-50/60 p-4">
+            <p className="text-sm font-semibold text-orange-700">发布者验收</p>
+            <p className="text-xs text-orange-500">请核对圆梦人的送交说明：确认后心愿完成并发放徽章；驳回需填写原因。</p>
+            {showRejectBox && (
+              <textarea
+                className="input min-h-[70px] border-rose-200"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="驳回原因（必填），将展示给圆梦人..."
+              />
+            )}
+            <div className="flex gap-3">
+              <button className="btn-primary" disabled={actionLoading || showRejectBox} onClick={() => review("approve")}>
+                确认验收 ✅
+              </button>
+              {!showRejectBox ? (
+                <button className="btn-secondary !border-rose-200 !text-rose-600" disabled={actionLoading} onClick={() => setShowRejectBox(true)}>
+                  驳回 ❌
+                </button>
+              ) : (
+                <button className="btn-secondary !border-rose-200 !text-rose-600" disabled={actionLoading} onClick={() => review("reject")}>
+                  确认驳回
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!claim && !isOwner && wish.status === "pending" && (
+          <button className="btn-primary w-full" disabled={actionLoading} onClick={claimIt}>
             {actionLoading ? "认领中..." : "🤝 认领这个心愿，成为圆梦人"}
           </button>
         )}

@@ -25,15 +25,15 @@ type UpdateProfileRequest struct {
 
 // UserResponse 用户返回结构。
 type UserResponse struct {
-	ID           uint64 `json:"id"`
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	Nickname     string `json:"nickname"`
-	Avatar       string `json:"avatar"`
-	Bio          string `json:"bio"`
-	Role         string `json:"role"`
-	Status       string `json:"status"`
-	CreatedAt    string `json:"created_at"`
+	ID        uint64 `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	Nickname  string `json:"nickname"`
+	Avatar    string `json:"avatar"`
+	Bio       string `json:"bio"`
+	Role      string `json:"role"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
 }
 
 // ToUserResponse 从模型构造返回结构。

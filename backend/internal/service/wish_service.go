@@ -25,13 +25,13 @@ type WishService interface {
 }
 
 type wishService struct {
-	wish    repository.WishRepository
-	claim   repository.WishClaimRepository
-	bless   repository.BlessingRepository
-	user    repository.UserRepository
-	badge   BadgeService
-	audit   AuditService
-	logger  *slog.Logger
+	wish   repository.WishRepository
+	claim  repository.WishClaimRepository
+	bless  repository.BlessingRepository
+	user   repository.UserRepository
+	badge  BadgeService
+	audit  AuditService
+	logger *slog.Logger
 }
 
 // NewWishService 构造心愿服务。

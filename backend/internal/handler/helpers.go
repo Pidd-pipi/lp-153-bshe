@@ -53,13 +53,17 @@ func httpStatusOf(code int) int {
 	case code == constants.CodeUserExists || code == constants.CodeWishAlreadyClaimed:
 		return http.StatusConflict
 	case code == constants.CodeUserBanned || code == constants.CodeWishNotOwner ||
-		code == constants.CodeClaimNotOwner || code == constants.CodeAuditDenied:
+		code == constants.CodeClaimNotOwner || code == constants.CodeClaimNotPublisher ||
+		code == constants.CodeAuditDenied:
 		return http.StatusForbidden
 	case code == constants.CodeInvalidCredential:
 		return http.StatusUnauthorized
 	case code == constants.CodeUserNotFound || code == constants.CodeWishNotFound ||
 		code == constants.CodeClaimNotFound || code == constants.CodeCapsuleNotFound:
 		return http.StatusNotFound
+	case code == constants.CodeClaimUnderReview || code == constants.CodeClaimNotUnderReview ||
+		code == constants.CodeClaimStatusInvalid:
+		return http.StatusConflict
 	default:
 		return http.StatusBadRequest
 	}

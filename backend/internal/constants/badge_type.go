@@ -2,11 +2,11 @@ package constants
 
 // 成就徽章类型枚举。
 const (
-	BadgeTypeFirstWish        = "first_wish"
-	BadgeTypeFirstClaim       = "first_claim"
-	BadgeTypeFirstBlessing    = "first_blessing"
-	BadgeTypeTenCompletions   = "ten_completions"
-	BadgeTypeWishMaster       = "wish_master"
+	BadgeTypeFirstWish      = "first_wish"
+	BadgeTypeFirstClaim     = "first_claim"
+	BadgeTypeFirstBlessing  = "first_blessing"
+	BadgeTypeTenCompletions = "ten_completions"
+	BadgeTypeWishMaster     = "wish_master"
 )
 
 // ValidBadgeTypes 徽章类型白名单。

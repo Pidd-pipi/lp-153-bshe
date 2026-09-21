@@ -27,9 +27,9 @@ func newMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 func TestUserRepository_Create(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name      string
-		wantErr   error
-		withMock  func(mock sqlmock.Sqlmock)
+		name     string
+		wantErr  error
+		withMock func(mock sqlmock.Sqlmock)
 	}{
 		{
 			name:    "create success",

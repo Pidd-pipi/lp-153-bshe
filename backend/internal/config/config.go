@@ -23,10 +23,10 @@ type Config struct {
 	RedisPassword string `env:"REDIS_PASSWORD" envDefault:""`
 	RedisDB       int    `env:"REDIS_DB" envDefault:"0"`
 
-	JWTSecret        string        `env:"JWT_SECRET" envDefault:"change_me_to_a_long_random_string"`
-	JWTExpireHours   int           `env:"JWT_EXPIRE_HOURS" envDefault:"72"`
-	RateLimitPerMin  int           `env:"RATE_LIMIT_PER_MIN" envDefault:"120"`
-	ShutdownTimeout  time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"10s"`
+	JWTSecret       string        `env:"JWT_SECRET" envDefault:"change_me_to_a_long_random_string"`
+	JWTExpireHours  int           `env:"JWT_EXPIRE_HOURS" envDefault:"72"`
+	RateLimitPerMin int           `env:"RATE_LIMIT_PER_MIN" envDefault:"120"`
+	ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"10s"`
 
 	MinIOEndpoint  string `env:"MINIO_ENDPOINT" envDefault:"localhost:9000"`
 	MinIOAccessKey string `env:"MINIO_ACCESS_KEY" envDefault:"minioadmin"`

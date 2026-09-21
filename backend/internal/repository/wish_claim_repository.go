@@ -13,6 +13,7 @@ type WishClaimRepository interface {
 	Create(claim *model.WishClaim) error
 	CreateWithTx(tx *gorm.DB, claim *model.WishClaim) error
 	FindByID(id uint64) (*model.WishClaim, error)
+	FindByIDForUpdate(tx *gorm.DB, id uint64) (*model.WishClaim, error)
 	FindByWishID(wishID uint64) (*model.WishClaim, error)
 	Update(claim *model.WishClaim) error
 	UpdateWithTx(tx *gorm.DB, claim *model.WishClaim) error
@@ -57,6 +58,18 @@ func (r *wishClaimRepository) FindByID(id uint64) (*model.WishClaim, error) {
 			return nil, fmt.Errorf("find claim by id %d: %w", id, ErrNotFound)
 		}
 		return nil, fmt.Errorf("find claim by id %d: %w", id, err)
+	}
+	return &claim, nil
+}
+
+// FindByIDForUpdate 事务内行级锁读取认领记录（发布者并发验收，只允许一次成功）。
+func (r *wishClaimRepository) FindByIDForUpdate(tx *gorm.DB, id uint64) (*model.WishClaim, error) {
+	var claim model.WishClaim
+	if err := tx.Clauses(gormclauseLock()).First(&claim, id).Error; err != nil {
+		if isRecordNotFound(err) {
+			return nil, fmt.Errorf("find claim by id %d for update: %w", id, ErrNotFound)
+		}
+		return nil, fmt.Errorf("find claim by id %d for update: %w", id, err)
 	}
 	return &claim, nil
 }
