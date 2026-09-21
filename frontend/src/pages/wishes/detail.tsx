@@ -5,12 +5,13 @@ import type { WishDetail } from "@/api/wish";
 import { wishApi } from "@/api/wish";
 import { blessingApi } from "@/api/blessing";
 import { claimApi } from "@/api/claim";
+import { acceptanceApi } from "@/api/acceptance";
 import GiftPicker from "@/components/GiftPicker";
 import ProgressBar from "@/components/ProgressBar";
 import StatusBadge from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/useAuth";
-import { formatCategory, formatDate, formatDeadline, formatDifficulty } from "@/utils/format";
+import { formatAcceptanceStatus, formatCategory, formatDate, formatDeadline, formatDifficulty } from "@/utils/format";
 
 export default function WishDetailPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function WishDetailPage() {
   const [gift, setGift] = useState("");
   const [progress, setProgress] = useState(0);
   const [note, setNote] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   const load = useCallback(async (wishId: number) => {
@@ -33,6 +35,8 @@ export default function WishDetailPage() {
       const detail = await wishApi.detail(wishId);
       setWish(detail);
       if (detail.claim) setProgress(detail.claim.progress);
+      // 驳回后保留送交说明，预填方便圆梦人修改后重新送交。
+      if (detail.acceptance?.status === "rejected") setNote(detail.acceptance.note || "");
       const bl = await blessingApi.list(wishId, { page: 1, page_size: 50 });
       setBlessings(bl.items);
     } catch (e) {
@@ -78,13 +82,50 @@ export default function WishDetailPage() {
     }
   };
 
-  const complete = async () => {
+  const submitAcceptance = async () => {
     if (!wish?.claim) return;
+    if (!note.trim()) {
+      toast.show("送交验收需要填写说明", "error");
+      return;
+    }
     setActionLoading(true);
     try {
-      await claimApi.complete(wish.claim.id, { note });
-      toast.show("心愿完成，进入庆祝时刻 🎉");
+      await acceptanceApi.submit(wish.claim.id, { note });
+      toast.show("验收申请已送交，等待发布者确认 📮");
       setNote("");
+      load(id);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const confirmAcceptance = async () => {
+    if (!wish?.acceptance) return;
+    setActionLoading(true);
+    try {
+      await acceptanceApi.confirm(wish.acceptance.id);
+      toast.show("验收通过，心愿已完成 🎉");
+      load(id);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const rejectAcceptance = async () => {
+    if (!wish?.acceptance) return;
+    if (!rejectReason.trim()) {
+      toast.show("驳回必须填写原因", "error");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await acceptanceApi.reject(wish.acceptance.id, { reason: rejectReason });
+      toast.show("已驳回，圆梦人可修改说明后重新送交");
+      setRejectReason("");
       load(id);
     } catch (e) {
       toast.show((e as Error).message, "error");
@@ -119,7 +160,10 @@ export default function WishDetailPage() {
   }
 
   const isOwner = isAuthed() && wish.user_id === user?.id;
-  const isFulfiller = Boolean(wish.claim);
+  const isFulfiller = isAuthed() && Boolean(wish.claim) && wish.claim?.user_id === user?.id;
+  const acceptance = wish.acceptance;
+  const acceptancePending = acceptance?.status === "pending";
+  const acceptanceRejected = acceptance?.status === "rejected";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -173,7 +217,38 @@ export default function WishDetailPage() {
           </div>
         )}
 
-        {isFulfiller && wish.status !== "completed" && (
+        {acceptance && (
+          <div className="space-y-2 rounded-xl border border-amber-100 bg-amber-50/60 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-700">验收单 · {acceptance.fulfiller_name || `#${acceptance.user_id}`}</p>
+              <StatusBadge status={acceptance.status} kind="acceptance" />
+            </div>
+            <p className="text-sm text-gray-600">送交说明：{acceptance.note}</p>
+            {acceptance.submitted_at && <p className="text-xs text-gray-400">送交于 {formatDate(acceptance.submitted_at)}</p>}
+            {acceptanceRejected && acceptance.reject_reason && (
+              <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">驳回原因：{acceptance.reject_reason}</p>
+            )}
+            {acceptance.status === "confirmed" && acceptance.reviewed_at && (
+              <p className="text-xs text-emerald-500">发布者已于 {formatDate(acceptance.reviewed_at)} 确认验收</p>
+            )}
+            {acceptancePending && isFulfiller && (
+              <p className="text-xs text-amber-500">已送交验收，等待发布者确认；验收期间进度已锁定，不能重复送交。</p>
+            )}
+          </div>
+        )}
+
+        {isOwner && acceptancePending && acceptance && (
+          <div className="space-y-3 rounded-xl border border-amber-200 bg-white p-4">
+            <p className="text-sm font-medium text-gray-700">发布者验收：{formatAcceptanceStatus(acceptance.status)}</p>
+            <textarea className="input min-h-[60px]" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="驳回原因（驳回时必填）..." />
+            <div className="flex gap-3">
+              <button className="btn-primary" disabled={actionLoading} onClick={confirmAcceptance}>确认验收 ✅</button>
+              <button className="btn-secondary" disabled={actionLoading || !rejectReason.trim()} onClick={rejectAcceptance}>驳回 ↩️</button>
+            </div>
+          </div>
+        )}
+
+        {isFulfiller && wish.status !== "completed" && !acceptancePending && (
           <div className="space-y-3 rounded-xl border border-purple-100 bg-white p-4">
             <p className="text-sm font-medium text-gray-700">更新圆梦进度</p>
             <input type="range" min={0} max={100} value={progress} onChange={(e) => setProgress(Number(e.target.value))} className="w-full" />
@@ -181,11 +256,14 @@ export default function WishDetailPage() {
               <span>当前进度：{progress}%</span>
               <button className="btn-secondary !py-1 !px-3" disabled={actionLoading} onClick={() => updateProgress(progress, true)}>里程碑打卡 🎯</button>
             </div>
-            <textarea className="input min-h-[60px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="记录进度说明/故事..." />
+            <textarea className="input min-h-[60px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="记录进度说明/故事；送交验收时作为验收说明..." />
             <div className="flex gap-3">
               <button className="btn-secondary" disabled={actionLoading} onClick={() => updateProgress(progress, false)}>保存进度</button>
-              <button className="btn-primary" disabled={actionLoading} onClick={complete}>标记完成 🎉</button>
+              <button className="btn-primary" disabled={actionLoading} onClick={submitAcceptance}>
+                {acceptanceRejected ? "重新送交验收 📮" : "送交验收 📮"}
+              </button>
             </div>
+            {acceptanceRejected && <p className="text-xs text-rose-500">上次送交被驳回，可修改说明后重新送交。</p>}
           </div>
         )}
 

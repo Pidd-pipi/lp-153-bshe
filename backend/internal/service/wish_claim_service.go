@@ -14,23 +14,23 @@ import (
 	"github.com/wishwall/wishwall/internal/util"
 )
 
-// WishClaimService 心愿认领服务：认领（事务+行锁）、进度更新、完成、我的认领。
+// WishClaimService 心愿认领服务：认领（事务+行锁）、进度更新、我的认领。
 type WishClaimService interface {
 	Claim(ctx context.Context, userID, wishID uint64, ip, requestID string) (*model.WishClaim, error)
 	UpdateProgress(ctx context.Context, userID, claimID uint64, req dto.UpdateProgressRequest, ip, requestID string) (*model.WishClaim, error)
-	Complete(ctx context.Context, userID, claimID uint64, req dto.CompleteClaimRequest, ip, requestID string) (*model.WishClaim, error)
 	ListMine(userID uint64, q dto.PageQuery) (*dto.PageResult, error)
 	GetByWishID(userID, wishID uint64) (*model.WishClaim, error)
 }
 
 type wishClaimService struct {
-	tx     repository.TxManager
-	wish   repository.WishRepository
-	claim  repository.WishClaimRepository
-	user   repository.UserRepository
-	badge  BadgeService
-	audit  AuditService
-	logger *slog.Logger
+	tx         repository.TxManager
+	wish       repository.WishRepository
+	claim      repository.WishClaimRepository
+	acceptance repository.WishAcceptanceRepository
+	user       repository.UserRepository
+	badge      BadgeService
+	audit      AuditService
+	logger     *slog.Logger
 }
 
 // NewWishClaimService 构造认领服务。
@@ -38,12 +38,13 @@ func NewWishClaimService(
 	tx repository.TxManager,
 	wish repository.WishRepository,
 	claim repository.WishClaimRepository,
+	acceptance repository.WishAcceptanceRepository,
 	user repository.UserRepository,
 	badge BadgeService,
 	audit AuditService,
 	logger *slog.Logger,
 ) WishClaimService {
-	return &wishClaimService{tx: tx, wish: wish, claim: claim, user: user, badge: badge, audit: audit, logger: logger}
+	return &wishClaimService{tx: tx, wish: wish, claim: claim, acceptance: acceptance, user: user, badge: badge, audit: audit, logger: logger}
 }
 
 // Claim 认领心愿：SELECT ... FOR UPDATE 锁定心愿行防止并发重复认领。
@@ -94,7 +95,7 @@ func (s *wishClaimService) Claim(ctx context.Context, userID, wishID uint64, ip,
 	return created, nil
 }
 
-// UpdateProgress 更新进度：progress>=100 时状态机流转为 completed。
+// UpdateProgress 更新进度：待验收期间禁止更新；进度达到 100% 需走送交验收流程。
 func (s *wishClaimService) UpdateProgress(ctx context.Context, userID, claimID uint64, req dto.UpdateProgressRequest, ip, requestID string) (*model.WishClaim, error) {
 	var updated *model.WishClaim
 	err := s.tx.Transaction(func(tx *gorm.DB) error {
@@ -112,6 +113,17 @@ func (s *wishClaimService) UpdateProgress(ctx context.Context, userID, claimID u
 		if err != nil {
 			return util.NewAppError(constants.CodeWishNotFound, constants.MsgWishNotFound, err)
 		}
+		if wish.Status == constants.WishStatusCompleted {
+			return util.NewAppError(constants.CodeWishStatusInvalid, "心愿已完成，禁止更新进度", errors.New("wish already completed"))
+		}
+		// 待验收期间禁止更新进度。
+		if acc, aerr := s.acceptance.FindByWishID(claim.WishID); aerr == nil && acc.Status == constants.AcceptanceStatusPending {
+			return util.NewAppError(constants.CodeAcceptancePending, constants.MsgAcceptancePending, errors.New("acceptance pending"))
+		}
+		// 完成心愿必须经发布者验收：进度 100% 引导送交验收。
+		if req.Progress >= 100 {
+			return util.NewAppError(constants.CodeAcceptanceRequired, constants.MsgAcceptanceRequired, errors.New("progress 100 requires acceptance"))
+		}
 		claim.Progress = req.Progress
 		if req.Note != "" {
 			claim.LatestNote = req.Note
@@ -119,16 +131,10 @@ func (s *wishClaimService) UpdateProgress(ctx context.Context, userID, claimID u
 		if req.IsMilestone {
 			claim.MilestoneCount++
 		}
-		if claim.Progress >= 100 {
-			claim.Status = constants.WishStatusCompleted
-			wish.Status = constants.WishStatusCompleted
-			wish.CompletionNote = req.Note
-		} else {
-			if claim.Status == constants.WishStatusClaimed {
-				claim.Status = constants.WishStatusInProgress
-			}
-			wish.Status = constants.WishStatusInProgress
+		if claim.Status == constants.WishStatusClaimed {
+			claim.Status = constants.WishStatusInProgress
 		}
+		wish.Status = constants.WishStatusInProgress
 		if err := s.claim.UpdateWithTx(tx, claim); err != nil {
 			return util.NewAppError(constants.CodeInternalError, constants.MsgInternalError, err)
 		}
@@ -146,22 +152,7 @@ func (s *wishClaimService) UpdateProgress(ctx context.Context, userID, claimID u
 		UserID: userID, Action: "update_progress", EntityType: "wish_claim", EntityID: u64str(claimID),
 		Detail: "更新圆梦进度至 " + itoa(updated.Progress) + "%", IP: ip, RequestID: requestID,
 	})
-	if updated.Status == constants.WishStatusCompleted {
-		s.logger.Info(constants.LogClaimCompleted, "claim_id", claimID, "user_id", userID)
-		_ = s.audit.Record(&model.AuditLog{
-			UserID: userID, Action: "complete_wish", EntityType: "wish_claim", EntityID: u64str(claimID),
-			Detail: "心愿达成，进入庆祝时刻", IP: ip, RequestID: requestID,
-		})
-		if err := s.badge.GrantCompletionBadges(userID); err != nil {
-			s.logger.Warn("grant completion badge failed", "error", err)
-		}
-	}
 	return updated, nil
-}
-
-// Complete 直接完成心愿（进度置 100）。
-func (s *wishClaimService) Complete(ctx context.Context, userID, claimID uint64, req dto.CompleteClaimRequest, ip, requestID string) (*model.WishClaim, error) {
-	return s.UpdateProgress(ctx, userID, claimID, dto.UpdateProgressRequest{Progress: 100, Note: req.Note, IsMilestone: true}, ip, requestID)
 }
 
 func (s *wishClaimService) ListMine(userID uint64, q dto.PageQuery) (*dto.PageResult, error) {

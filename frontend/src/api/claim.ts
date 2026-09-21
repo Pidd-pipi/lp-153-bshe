@@ -8,6 +8,4 @@ export const claimApi = {
     http.get<PageResult<ClaimSummary>>("/claims/mine", params),
   updateProgress: (claimId: number, payload: { progress: number; note?: string; is_milestone?: boolean }) =>
     http.put<ClaimSummary>(`/claims/${claimId}/progress`, payload),
-  complete: (claimId: number, payload: { note?: string }) =>
-    http.post<ClaimSummary>(`/claims/${claimId}/complete`, payload),
 };

@@ -11,11 +11,6 @@ type UpdateProgressRequest struct {
 	IsMilestone  bool   `json:"is_milestone"`
 }
 
-// CompleteClaimRequest 标记完成入参。
-type CompleteClaimRequest struct {
-	Note string `json:"note" binding:"omitempty,max=1000"`
-}
-
 // WishClaimResponse 认领记录返回结构。
 type WishClaimResponse struct {
 	ID             uint64 `json:"id"`

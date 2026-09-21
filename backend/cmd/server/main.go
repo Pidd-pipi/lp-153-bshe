@@ -52,6 +52,7 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	wishRepo := repository.NewWishRepository(db)
 	claimRepo := repository.NewWishClaimRepository(db)
+	acceptanceRepo := repository.NewWishAcceptanceRepository(db)
 	blessRepo := repository.NewBlessingRepository(db)
 	capsuleRepo := repository.NewTimeCapsuleRepository(db)
 	badgeRepo := repository.NewBadgeRepository(db)
@@ -62,23 +63,25 @@ func main() {
 	auditSvc := service.NewAuditService(auditRepo, userRepo, logger)
 	badgeSvc := service.NewBadgeService(badgeRepo, wishRepo, rdb, logger)
 	userSvc := service.NewUserService(userRepo, cfg, auditSvc, logger)
-	wishSvc := service.NewWishService(wishRepo, claimRepo, blessRepo, userRepo, badgeSvc, auditSvc, logger)
-	claimSvc := service.NewWishClaimService(txManager, wishRepo, claimRepo, userRepo, badgeSvc, auditSvc, logger)
+	wishSvc := service.NewWishService(wishRepo, claimRepo, acceptanceRepo, blessRepo, userRepo, badgeSvc, auditSvc, logger)
+	claimSvc := service.NewWishClaimService(txManager, wishRepo, claimRepo, acceptanceRepo, userRepo, badgeSvc, auditSvc, logger)
+	acceptanceSvc := service.NewWishAcceptanceService(txManager, wishRepo, claimRepo, acceptanceRepo, badgeSvc, auditSvc, logger)
 	blessSvc := service.NewBlessingService(blessRepo, wishRepo, userRepo, badgeSvc, auditSvc, logger)
 	capsuleSvc := service.NewTimeCapsuleService(capsuleRepo, auditSvc, logger)
 	uploadSvc := service.NewUploadService(cfg, minioClient, auditSvc, logger)
 
 	// 处理器
 	handlers := &router.Handlers{
-		User:    handler.NewUserHandler(userSvc),
-		Wish:    handler.NewWishHandler(wishSvc),
-		Claim:   handler.NewWishClaimHandler(claimSvc),
-		Bless:   handler.NewBlessingHandler(blessSvc),
-		Capsule: handler.NewTimeCapsuleHandler(capsuleSvc),
-		Badge:   handler.NewBadgeHandler(badgeSvc),
-		Audit:   handler.NewAuditLogHandler(auditSvc),
-		Upload:  handler.NewUploadHandler(uploadSvc),
-		Health:  handler.NewHealthHandler(),
+		User:       handler.NewUserHandler(userSvc),
+		Wish:       handler.NewWishHandler(wishSvc),
+		Claim:      handler.NewWishClaimHandler(claimSvc),
+		Acceptance: handler.NewWishAcceptanceHandler(acceptanceSvc),
+		Bless:      handler.NewBlessingHandler(blessSvc),
+		Capsule:    handler.NewTimeCapsuleHandler(capsuleSvc),
+		Badge:      handler.NewBadgeHandler(badgeSvc),
+		Audit:      handler.NewAuditLogHandler(auditSvc),
+		Upload:     handler.NewUploadHandler(uploadSvc),
+		Health:     handler.NewHealthHandler(),
 	}
 
 	// 默认管理员种子

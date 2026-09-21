@@ -21,6 +21,9 @@ func FormatDateTime(t time.Time) string {
 // FormatWishStatus 心愿状态文本（耦合 constants.WishStatusText）。
 func FormatWishStatus(status string) string { return constants.WishStatusText(status) }
 
+// FormatAcceptanceStatus 验收状态文本（耦合 constants.AcceptanceStatusText）。
+func FormatAcceptanceStatus(status string) string { return constants.AcceptanceStatusText(status) }
+
 // FormatVisibility 可见范围文本（耦合 constants.VisibilityText）。
 func FormatVisibility(v string) string { return constants.VisibilityText(v) }
 

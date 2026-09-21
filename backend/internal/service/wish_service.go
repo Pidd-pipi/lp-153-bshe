@@ -25,26 +25,28 @@ type WishService interface {
 }
 
 type wishService struct {
-	wish    repository.WishRepository
-	claim   repository.WishClaimRepository
-	bless   repository.BlessingRepository
-	user    repository.UserRepository
-	badge   BadgeService
-	audit   AuditService
-	logger  *slog.Logger
+	wish       repository.WishRepository
+	claim      repository.WishClaimRepository
+	acceptance repository.WishAcceptanceRepository
+	bless      repository.BlessingRepository
+	user       repository.UserRepository
+	badge      BadgeService
+	audit      AuditService
+	logger     *slog.Logger
 }
 
 // NewWishService 构造心愿服务。
 func NewWishService(
 	wish repository.WishRepository,
 	claim repository.WishClaimRepository,
+	acceptance repository.WishAcceptanceRepository,
 	bless repository.BlessingRepository,
 	user repository.UserRepository,
 	badge BadgeService,
 	audit AuditService,
 	logger *slog.Logger,
 ) WishService {
-	return &wishService{wish: wish, claim: claim, bless: bless, user: user, badge: badge, audit: audit, logger: logger}
+	return &wishService{wish: wish, claim: claim, acceptance: acceptance, bless: bless, user: user, badge: badge, audit: audit, logger: logger}
 }
 
 func (s *wishService) Create(userID uint64, req dto.CreateWishRequest, ip, requestID string) (*model.Wish, error) {
@@ -161,6 +163,13 @@ func (s *wishService) GetByID(wishID uint64) (*dto.WishDetailResponse, error) {
 			claimResp.FulfillerName = fulfiller.Nickname
 		}
 		detail.Claim = &claimResp
+	}
+	if acc, aerr := s.acceptance.FindByWishID(wishID); aerr == nil {
+		accResp := dto.ToWishAcceptanceResponse(acc)
+		if fulfiller, ferr := s.user.FindByID(acc.UserID); ferr == nil {
+			accResp.FulfillerName = fulfiller.Nickname
+		}
+		detail.Acceptance = &accResp
 	}
 	if count, berr := s.bless.CountByWishID(wishID); berr == nil {
 		detail.BlessingCount = count

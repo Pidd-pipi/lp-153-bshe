@@ -37,7 +37,7 @@ func TestWishClaimService_Claim(t *testing.T) {
 			wishFn: func(tx *gorm.DB, id uint64) (*model.Wish, error) {
 				return &model.Wish{ID: id, UserID: 1, Status: constants.WishStatusClaimed}, nil
 			},
-			createFn: func(tx *gorm.DB, claim *model.WishClaim) error { return nil },
+			createFn:    func(tx *gorm.DB, claim *model.WishClaim) error { return nil },
 			wantErrCode: constants.CodeWishAlreadyClaimed,
 		},
 		{
@@ -45,7 +45,7 @@ func TestWishClaimService_Claim(t *testing.T) {
 			wishFn: func(tx *gorm.DB, id uint64) (*model.Wish, error) {
 				return &model.Wish{ID: id, UserID: 2, Status: constants.WishStatusPending}, nil
 			},
-			createFn: func(tx *gorm.DB, claim *model.WishClaim) error { return nil },
+			createFn:    func(tx *gorm.DB, claim *model.WishClaim) error { return nil },
 			wantErrCode: constants.CodeWishStatusInvalid,
 		},
 	}
@@ -65,7 +65,7 @@ func TestWishClaimService_Claim(t *testing.T) {
 				},
 			}
 			badge := &mockBadge{grantFirstClaimFn: func(userID uint64) error { return nil }}
-			svc := NewWishClaimService(&mockTx{}, wishRepo, claimRepo, &mockUserRepo{}, badge, &mockAudit{}, testLogger())
+			svc := NewWishClaimService(&mockTx{}, wishRepo, claimRepo, &mockAcceptanceRepo{}, &mockUserRepo{}, badge, &mockAudit{}, testLogger())
 			claim, err := svc.Claim(context.Background(), 2, 5, "127.0.0.1", "req-5")
 			if tt.wantErrCode == 0 {
 				if err != nil {
@@ -84,32 +84,65 @@ func TestWishClaimService_Claim(t *testing.T) {
 	}
 }
 
-func TestWishClaimService_UpdateProgress_Complete(t *testing.T) {
+func TestWishClaimService_UpdateProgress(t *testing.T) {
 	t.Parallel()
-	wishRepo := &mockWishRepo{
-		findByIDFn: func(id uint64) (*model.Wish, error) {
-			return &model.Wish{ID: id, UserID: 1, Status: constants.WishStatusClaimed}, nil
-		},
-		updateWithTxFn: func(tx *gorm.DB, wish *model.Wish) error { return nil },
-		countCompletedFn: func(userID uint64) (int64, error) { return 11, nil },
+	newSvc := func(acceptanceRepo *mockAcceptanceRepo) (WishClaimService, *mockWishRepo, *mockClaimRepo) {
+		wishRepo := &mockWishRepo{
+			findByIDFn: func(id uint64) (*model.Wish, error) {
+				return &model.Wish{ID: id, UserID: 1, Status: constants.WishStatusInProgress}, nil
+			},
+			updateWithTxFn: func(tx *gorm.DB, wish *model.Wish) error { return nil },
+		}
+		claimRepo := &mockClaimRepo{
+			findByIDFn: func(id uint64) (*model.WishClaim, error) {
+				return &model.WishClaim{ID: id, WishID: 5, UserID: 2, Progress: 40, Status: constants.WishStatusInProgress}, nil
+			},
+			updateWithTxFn: func(tx *gorm.DB, claim *model.WishClaim) error { return nil },
+		}
+		svc := NewWishClaimService(&mockTx{}, wishRepo, claimRepo, acceptanceRepo, &mockUserRepo{}, &mockBadge{}, &mockAudit{}, testLogger())
+		return svc, wishRepo, claimRepo
 	}
-	claimRepo := &mockClaimRepo{
-		findByIDFn: func(id uint64) (*model.WishClaim, error) {
-			return &model.WishClaim{ID: id, WishID: 5, UserID: 2, Progress: 40, Status: constants.WishStatusInProgress}, nil
-		},
-		updateWithTxFn: func(tx *gorm.DB, claim *model.WishClaim) error { return nil },
-	}
-	badge := &mockBadge{grantCompletionFn: func(userID uint64) error { return nil }}
-	svc := NewWishClaimService(&mockTx{}, wishRepo, claimRepo, &mockUserRepo{}, badge, &mockAudit{}, testLogger())
 
-	claim, err := svc.UpdateProgress(context.Background(), 2, 9, dto.UpdateProgressRequest{Progress: 100, Note: "做到了！", IsMilestone: true}, "127.0.0.1", "req-6")
-	if err != nil {
-		t.Fatalf("update progress: %v", err)
-	}
-	if claim.Status != constants.WishStatusCompleted {
-		t.Fatalf("expected completed, got %s", claim.Status)
-	}
-	if claim.MilestoneCount != 1 {
-		t.Fatalf("expected milestone count 1, got %d", claim.MilestoneCount)
-	}
+	t.Run("progress update below 100 succeeds", func(t *testing.T) {
+		t.Parallel()
+		svc, _, _ := newSvc(&mockAcceptanceRepo{})
+		claim, err := svc.UpdateProgress(context.Background(), 2, 9, dto.UpdateProgressRequest{Progress: 80, Note: "快到终点了", IsMilestone: true}, "127.0.0.1", "req-6")
+		if err != nil {
+			t.Fatalf("update progress: %v", err)
+		}
+		if claim.Progress != 80 {
+			t.Fatalf("expected progress 80, got %d", claim.Progress)
+		}
+		if claim.MilestoneCount != 1 {
+			t.Fatalf("expected milestone count 1, got %d", claim.MilestoneCount)
+		}
+		if claim.Status != constants.WishStatusInProgress {
+			t.Fatalf("expected in_progress, got %s", claim.Status)
+		}
+	})
+
+	t.Run("progress 100 requires acceptance instead of completing", func(t *testing.T) {
+		t.Parallel()
+		svc, _, _ := newSvc(&mockAcceptanceRepo{})
+		_, err := svc.UpdateProgress(context.Background(), 2, 9, dto.UpdateProgressRequest{Progress: 100, Note: "做到了！"}, "127.0.0.1", "req-7")
+		var appErr *util.AppError
+		if !errors.As(err, &appErr) || appErr.Code != constants.CodeAcceptanceRequired {
+			t.Fatalf("expected CodeAcceptanceRequired, got %v", err)
+		}
+	})
+
+	t.Run("progress update forbidden while acceptance pending", func(t *testing.T) {
+		t.Parallel()
+		acceptanceRepo := &mockAcceptanceRepo{
+			findByWishFn: func(wishID uint64) (*model.WishAcceptance, error) {
+				return &model.WishAcceptance{ID: 3, WishID: wishID, Status: constants.AcceptanceStatusPending}, nil
+			},
+		}
+		svc, _, _ := newSvc(acceptanceRepo)
+		_, err := svc.UpdateProgress(context.Background(), 2, 9, dto.UpdateProgressRequest{Progress: 60, Note: "想改进度"}, "127.0.0.1", "req-8")
+		var appErr *util.AppError
+		if !errors.As(err, &appErr) || appErr.Code != constants.CodeAcceptancePending {
+			t.Fatalf("expected CodeAcceptancePending, got %v", err)
+		}
+	})
 }

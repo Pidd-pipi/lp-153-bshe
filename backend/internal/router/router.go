@@ -11,15 +11,16 @@ import (
 
 // Handlers 全部处理器聚合，供路由注册使用。
 type Handlers struct {
-	User    *handler.UserHandler
-	Wish    *handler.WishHandler
-	Claim   *handler.WishClaimHandler
-	Bless   *handler.BlessingHandler
-	Capsule *handler.TimeCapsuleHandler
-	Badge   *handler.BadgeHandler
-	Audit   *handler.AuditLogHandler
-	Upload  *handler.UploadHandler
-	Health  *handler.HealthHandler
+	User       *handler.UserHandler
+	Wish       *handler.WishHandler
+	Claim      *handler.WishClaimHandler
+	Acceptance *handler.WishAcceptanceHandler
+	Bless      *handler.BlessingHandler
+	Capsule    *handler.TimeCapsuleHandler
+	Badge      *handler.BadgeHandler
+	Audit      *handler.AuditLogHandler
+	Upload     *handler.UploadHandler
+	Health     *handler.HealthHandler
 }
 
 // NewRouter 装配 Gin 引擎：全局中间件 + /healthz + /api/v1 分组路由。
@@ -42,6 +43,7 @@ func NewRouter(cfg *config.Config, hs *Handlers, auditMiddleware gin.HandlerFunc
 	RegisterUserRoutes(api, hs.User, auth)
 	RegisterWishRoutes(api, hs.Wish, auth)
 	RegisterWishClaimRoutes(api, hs.Claim, auth)
+	RegisterWishAcceptanceRoutes(api, hs.Acceptance, auth)
 	RegisterBlessingRoutes(api, hs.Bless, auth)
 	RegisterTimeCapsuleRoutes(api, hs.Capsule, auth)
 	RegisterBadgeRoutes(api, hs.Badge, auth)

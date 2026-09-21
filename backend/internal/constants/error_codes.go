@@ -23,6 +23,14 @@ const (
 	CodeClaimNotFound      = 30001
 	CodeClaimNotOwner      = 30002
 	CodeClaimStatusInvalid = 30003
+
+	CodeAcceptanceNotFound         = 31001
+	CodeAcceptancePending          = 31002
+	CodeAcceptanceAlreadySubmitted = 31003
+	CodeAcceptanceStatusInvalid    = 31004
+	CodeAcceptanceNotPublisher     = 31005
+	CodeAcceptanceRequired         = 31006
+
 	CodeBlessingFailed     = 40001
 	CodeCapsuleNotFound    = 50001
 	CodeCapsuleLocked      = 50002

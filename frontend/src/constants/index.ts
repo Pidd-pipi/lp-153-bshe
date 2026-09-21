@@ -28,6 +28,22 @@ export const WISH_STATUS_STYLE: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-700",
 };
 
+export const ACCEPTANCE_STATUS = {
+  PENDING: "pending",
+  CONFIRMED: "confirmed",
+  REJECTED: "rejected",
+} as const;
+export const ACCEPTANCE_STATUS_TEXT: Record<string, string> = {
+  pending: "待验收",
+  confirmed: "验收通过",
+  rejected: "已驳回",
+};
+export const ACCEPTANCE_STATUS_STYLE: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-700",
+  confirmed: "bg-emerald-100 text-emerald-700",
+  rejected: "bg-rose-100 text-rose-700",
+};
+
 export const VISIBILITY = {
   PUBLIC: "public",
   FRIEND: "friend",

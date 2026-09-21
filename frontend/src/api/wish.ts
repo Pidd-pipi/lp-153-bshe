@@ -1,4 +1,5 @@
 import { http } from "@/utils/request";
+import type { AcceptanceSummary } from "./acceptance";
 
 export interface Wish {
   id: number;
@@ -36,6 +37,7 @@ export interface ClaimSummary {
 
 export interface WishDetail extends Wish {
   claim?: ClaimSummary | null;
+  acceptance?: AcceptanceSummary | null;
   blessing_count: number;
 }
 

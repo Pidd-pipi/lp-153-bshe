@@ -124,6 +124,38 @@ func (m *mockClaimRepo) ListByUserID(userID uint64, offset, limit int) ([]model.
 func (m *mockClaimRepo) CountByUserID(userID uint64) (int64, error) { return m.countByUserFn(userID) }
 func (m *mockClaimRepo) ListByWishIDs(wishIDs []uint64) ([]model.WishClaim, error) { return m.listByWishFn(wishIDs) }
 
+// ---- mock WishAcceptanceRepository ----
+type mockAcceptanceRepo struct {
+	createWithTxFn       func(tx *gorm.DB, acc *model.WishAcceptance) error
+	findByIDFn           func(id uint64) (*model.WishAcceptance, error)
+	findByIDForUpdateFn  func(tx *gorm.DB, id uint64) (*model.WishAcceptance, error)
+	findByWishFn         func(wishID uint64) (*model.WishAcceptance, error)
+	findByWishForUpdateFn func(tx *gorm.DB, wishID uint64) (*model.WishAcceptance, error)
+	updateWithTxFn       func(tx *gorm.DB, acc *model.WishAcceptance) error
+}
+
+func (m *mockAcceptanceRepo) CreateWithTx(tx *gorm.DB, acc *model.WishAcceptance) error {
+	return m.createWithTxFn(tx, acc)
+}
+func (m *mockAcceptanceRepo) FindByID(id uint64) (*model.WishAcceptance, error) {
+	return m.findByIDFn(id)
+}
+func (m *mockAcceptanceRepo) FindByIDForUpdate(tx *gorm.DB, id uint64) (*model.WishAcceptance, error) {
+	return m.findByIDForUpdateFn(tx, id)
+}
+func (m *mockAcceptanceRepo) FindByWishID(wishID uint64) (*model.WishAcceptance, error) {
+	if m.findByWishFn == nil {
+		return nil, repository.ErrNotFound
+	}
+	return m.findByWishFn(wishID)
+}
+func (m *mockAcceptanceRepo) FindByWishIDForUpdate(tx *gorm.DB, wishID uint64) (*model.WishAcceptance, error) {
+	return m.findByWishForUpdateFn(tx, wishID)
+}
+func (m *mockAcceptanceRepo) UpdateWithTx(tx *gorm.DB, acc *model.WishAcceptance) error {
+	return m.updateWithTxFn(tx, acc)
+}
+
 // ---- mock BlessingRepository ----
 type mockBlessRepo struct {
 	createFn       func(blessing *model.Blessing) error

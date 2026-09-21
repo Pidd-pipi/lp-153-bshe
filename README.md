@@ -30,10 +30,11 @@ docker compose down -v --remove-orphans
 
 1. **心愿发布**：文字 + 图片，分类（学习成长/旅行探险/情感陪伴/职业发展/生活小确幸/其他），可见范围（公开/好友可见/匿名），期望完成时间 + 难度标签。
 2. **心愿认领与进度追踪**：心愿广场浏览并认领心愿成为「圆梦人」，更新进度（百分比 + 文字），支持里程碑打卡。
-3. **祝福留言板**：每个心愿专属留言板，送祝福与虚拟礼物（🎁 表情包）；心愿完成自动转为庆祝页。
-4. **时光胶囊**：定时解锁的文字 + 图片 + 音频胶囊；解锁前内容打码，到期自动解锁并播放解锁动画。
-5. **心愿成就徽章**：首次许愿、首次认领、首次祝福、十次圆梦、圆梦大师；展示在个人主页。
-6. **搜索与发现广场**：按标签/关键词搜索，热门圆梦人排行榜 + 最新完成的心愿故事。
+3. **发布者验收**：圆梦人送交完成说明后心愿进入「待验收」，仅发布者可确认或驳回（驳回必填原因、保留说明可重新送交）；确认后心愿才完成并发放徽章，同一心愿仅一条验收记录，并发验收只成功一次。
+4. **祝福留言板**：每个心愿专属留言板，送祝福与虚拟礼物（🎁 表情包）；心愿完成自动转为庆祝页。
+5. **时光胶囊**：定时解锁的文字 + 图片 + 音频胶囊；解锁前内容打码，到期自动解锁并播放解锁动画。
+6. **心愿成就徽章**：首次许愿、首次认领、首次祝福、十次圆梦、圆梦大师；展示在个人主页。
+7. **搜索与发现广场**：按标签/关键词搜索，热门圆梦人排行榜 + 最新完成的心愿故事。
 
 ## 技术栈
 
@@ -58,7 +59,7 @@ lp-153/
 │   ├── internal/
 │   │   ├── config/                 # 环境变量配置
 │   │   ├── database/               # PostgreSQL / Redis / MinIO 连接
-│   │   ├── model/                  # 7 个实体（user/wish/claim/blessing/capsule/badge/audit）
+│   │   ├── model/                  # 8 个实体（user/wish/claim/acceptance/blessing/capsule/badge/audit）
 │   │   ├── dto/                    # 每个实体一个 DTO 文件（含 validator 校验）
 │   │   ├── repository/             # 每个实体一个仓储文件（哨兵错误）
 │   │   ├── service/                # 每个实体一个服务文件（事务/状态机）
@@ -155,10 +156,33 @@ curl -sS -X POST http://localhost:19403/api/v1/wishes/1/claim \
 curl -sS -X PUT http://localhost:19403/api/v1/claims/1/progress \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"progress":100,"note":"极光真的出现了！","is_milestone":true}'
+  -d '{"progress":60,"note":"已经订好机票","is_milestone":true}'
 ```
 
-### 7. 送祝福
+### 7. 送交验收（圆梦人，说明必填）
+
+```bash
+curl -sS -X POST http://localhost:19403/api/v1/claims/1/acceptance \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"note":"极光真的出现了！照片已送达"}'
+```
+
+### 8. 发布者验收（确认 / 驳回，驳回必须写原因）
+
+```bash
+# 确认验收：心愿完成并发放徽章（仅心愿发布者）
+curl -sS -X POST http://localhost:19403/api/v1/acceptances/1/confirm \
+  -H "Authorization: Bearer $TOKEN"
+
+# 驳回验收：记录回到圆梦中并保留说明，可重新送交（仅心愿发布者）
+curl -sS -X POST http://localhost:19403/api/v1/acceptances/1/reject \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"reason":"照片不清晰，请补充后重新送交"}'
+```
+
+### 9. 送祝福
 
 ```bash
 curl -sS -X POST http://localhost:19403/api/v1/wishes/1/blessings \
@@ -167,7 +191,7 @@ curl -sS -X POST http://localhost:19403/api/v1/wishes/1/blessings \
   -d '{"content":"祝你梦想成真！","gift_emoji":"🎁"}'
 ```
 
-### 8. 封存时光胶囊
+### 10. 封存时光胶囊
 
 ```bash
 curl -sS -X POST http://localhost:19403/api/v1/capsules \
@@ -208,8 +232,16 @@ curl -sS -X POST http://localhost:19403/api/v1/capsules \
 | POST | `/wishes/:id/claim` | 认领心愿（事务 + 行锁防并发重复认领） | JWT |
 | GET | `/wishes/:id/claim` | 心愿的认领记录 | JWT |
 | GET | `/claims/mine` | 我认领的心愿 | JWT |
-| PUT | `/claims/:id/progress` | 更新进度（里程碑打卡） | JWT |
-| POST | `/claims/:id/complete` | 标记完成 | JWT |
+| PUT | `/claims/:id/progress` | 更新进度（里程碑打卡；待验收期间禁止更新，进度 100% 需送交验收） | JWT |
+
+### 验收（发布者确认/驳回）
+
+| 方法 | 路径 | 说明 | 鉴权 |
+| --- | --- | --- | --- |
+| POST | `/claims/:id/acceptance` | 圆梦人送交验收（说明必填；同一心愿仅一条记录，唯一索引兜底） | JWT |
+| GET | `/wishes/:id/acceptance` | 心愿的验收记录（仅发布者/圆梦人；心愿详情亦内嵌验收摘要） | JWT |
+| POST | `/acceptances/:id/confirm` | 发布者确认验收（行锁保证并发只成功一次；确认后心愿完成并发放徽章） | JWT |
+| POST | `/acceptances/:id/reject` | 发布者驳回验收（原因必填；记录回到圆梦中并保留说明，可重新送交） | JWT |
 
 ### 祝福留言板
 
@@ -247,6 +279,7 @@ curl -sS -X POST http://localhost:19403/api/v1/capsules \
 - `GET /wishes` 与 `GET /discover` 复用 `WishService.List` / `WishRepository.Count`。
 - `GET /discover/leaderboard` 与 `GET /badges/leaderboard` 复用 `BadgeService.Leaderboard`。
 - `GET /claims/mine` 与个人主页的认领展示复用 `WishClaimService.ListMine`。
+- `GET /wishes/:id`（详情内嵌验收摘要）与 `GET /wishes/:id/acceptance` 复用 `WishAcceptanceRepository.FindByWishID`。
 
 ## 横切关注点
 
@@ -327,6 +360,23 @@ curl -sS -X POST http://localhost:19403/api/v1/capsules \
 | 后端 formatters | `backend/internal/util/formatters.go`（`FormatBadgeType`） |
 | 前端 constants | `frontend/src/constants/index.ts`（`BADGE_TYPE`/`BADGE_TYPE_TEXT`） |
 | 前端页面 | `frontend/src/pages/profile.tsx`（徽章展示） |
+
+### 枚举 7：验收状态（pending / confirmed / rejected）
+
+| 层 | 位置 |
+| --- | --- |
+| 后端 constants | `backend/internal/constants/acceptance_status.go` |
+| 后端模型 | `backend/internal/model/wish_acceptance.go`（Status 字段） |
+| 后端 DTO | `backend/internal/dto/wish_acceptance_dto.go`（送交/驳回入参与验收返回结构） |
+| 后端状态机 | `backend/internal/service/wish_acceptance_service.go`（送交/确认/驳回流转）、`service/wish_claim_service.go`（待验收禁止更新进度） |
+| 后端仓储 | `backend/internal/repository/wish_acceptance_repository.go`（`wish_id` 唯一索引 + `FOR UPDATE` 行锁） |
+| 后端 handler 校验 | `backend/internal/handler/wish_acceptance_handler.go`（说明/原因必填校验） |
+| 后端日志模板 | `backend/internal/constants/log_templates.go`（`LogAcceptanceSubmitted`/`LogAcceptanceConfirmed`/`LogAcceptanceRejected`） |
+| 后端错误码 | `backend/internal/constants/error_codes.go`（`CodeAcceptanceNotFound`/`CodeAcceptancePending`/`CodeAcceptanceAlreadySubmitted`/`CodeAcceptanceStatusInvalid`/`CodeAcceptanceNotPublisher`/`CodeAcceptanceRequired`） |
+| 后端 formatters | `backend/internal/util/formatters.go`（`FormatAcceptanceStatus`） |
+| 前端 constants | `frontend/src/constants/index.ts`（`ACCEPTANCE_STATUS`/`ACCEPTANCE_STATUS_TEXT`/`ACCEPTANCE_STATUS_STYLE`） |
+| 前端 API/类型 | `frontend/src/api/acceptance.ts`、`frontend/src/api/wish.ts`（`WishDetail.acceptance`） |
+| 前端徽标/页面 | `frontend/src/components/StatusBadge.tsx`（kind=acceptance）、`frontend/src/pages/wishes/detail.tsx`（验收状态、驳回原因、确认/驳回/重新送交入口） |
 
 ## 屎山代码设计说明（跨文件协同约束）
 

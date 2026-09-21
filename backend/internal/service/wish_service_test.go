@@ -19,7 +19,7 @@ func TestWishService_Create(t *testing.T) {
 		countByUserFn: func(userID uint64) (int64, error) { return 1, nil },
 	}
 	badge := &mockBadge{grantFirstWishFn: func(userID uint64) error { granted = true; return nil }}
-	svc := NewWishService(wishRepo, &mockClaimRepo{}, &mockBlessRepo{}, &mockUserRepo{}, badge, &mockAudit{}, testLogger())
+	svc := NewWishService(wishRepo, &mockClaimRepo{}, &mockAcceptanceRepo{}, &mockBlessRepo{}, &mockUserRepo{}, badge, &mockAudit{}, testLogger())
 
 	deadline := time.Now().Add(30 * 24 * time.Hour)
 	wish, err := svc.Create(1, dto.CreateWishRequest{
@@ -45,7 +45,7 @@ func TestWishService_Update_Forbidden(t *testing.T) {
 			return &model.Wish{ID: id, UserID: 99, Title: "别人", Content: "别人的心愿内容"}, nil
 		},
 	}
-	svc := NewWishService(wishRepo, &mockClaimRepo{}, &mockBlessRepo{}, &mockUserRepo{}, &mockBadge{}, &mockAudit{}, testLogger())
+	svc := NewWishService(wishRepo, &mockClaimRepo{}, &mockAcceptanceRepo{}, &mockBlessRepo{}, &mockUserRepo{}, &mockBadge{}, &mockAudit{}, testLogger())
 	_, err := svc.Update(1, 5, dto.UpdateWishRequest{Title: "篡改"}, "127.0.0.1", "req-4")
 	var appErr *util.AppError
 	if !errors.As(err, &appErr) || appErr.Code != constants.CodeWishNotOwner {

@@ -6,6 +6,7 @@ import {
   CAPSULE_STATUS_TEXT,
   BADGE_TYPE_TEXT,
   ROLE_TEXT,
+  ACCEPTANCE_STATUS_TEXT,
 } from "@/constants";
 
 export function formatDate(input?: string | null): string {
@@ -39,6 +40,10 @@ export function formatCategory(c: string) {
 
 export function formatCapsuleStatus(s: string) {
   return CAPSULE_STATUS_TEXT[s] || s;
+}
+
+export function formatAcceptanceStatus(s: string) {
+  return ACCEPTANCE_STATUS_TEXT[s] || s;
 }
 
 export function formatBadgeType(t: string) {

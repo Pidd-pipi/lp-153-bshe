@@ -24,7 +24,19 @@ const (
 	MsgWishNotOwner       = "只有心愿发布者才能执行该操作"
 	MsgWishAlreadyClaimed = "该心愿已被认领"
 	MsgClaimNotFound      = "认领记录不存在"
-	MsgCapsuleLocked      = "时光胶囊尚未到解锁时间"
-	MsgParamInvalid       = "参数校验失败"
-	MsgInternalError      = "服务器内部错误"
+
+	MsgAcceptanceSubmitted        = "验收申请已送交，等待发布者确认"
+	MsgAcceptanceConfirmed        = "验收通过，心愿已完成"
+	MsgAcceptanceRejected         = "验收已驳回，圆梦人可修改说明后重新送交"
+	MsgAcceptanceNotFound         = "验收记录不存在"
+	MsgAcceptancePending          = "心愿正在待验收，暂不能更新进度或重复送交"
+	MsgAcceptanceAlreadySubmitted = "已送交验收，请勿重复送交"
+	MsgAcceptanceStatusInvalid    = "验收记录状态已变化，请刷新后重试"
+	MsgAcceptanceNotPublisher     = "只有心愿发布者才能验收"
+	MsgAcceptanceRequired         = "进度已达 100%，请送交发布者验收"
+	MsgRejectReasonRequired       = "驳回必须填写原因"
+
+	MsgCapsuleLocked = "时光胶囊尚未到解锁时间"
+	MsgParamInvalid  = "参数校验失败"
+	MsgInternalError = "服务器内部错误"
 )
